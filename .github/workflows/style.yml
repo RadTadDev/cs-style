@@ -1,7 +1,8 @@
 name: Style check
 
-# Reports style violations as warnings on the run and in the job summary.
-# No step fails the job, so this never blocks a merge.
+# Checks every package folder (any folder with its own .editorconfig) against its own rules.
+# Violations are reported as warnings and in the job summary. No step fails the job,
+# so this never blocks a merge.
 
 on:
   pull_request:
@@ -23,52 +24,51 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Whitespace (dotnet format whitespace)
-        id: whitespace
-        continue-on-error: true
+      - name: Find packages
         run: |
-          dotnet format whitespace ci/StyleCheck/StyleCheck.csproj --verify-no-changes --verbosity normal 2>&1 | tee whitespace.log
+          # A package is any folder with its own .editorconfig. The baseline and CI folders are not packages.
+          find . -name .editorconfig \
+            -not -path './.git/*' -not -path './baseline/*' -not -path './ci/*' \
+            -not -path '*/Library/*' -not -path '*/Temp/*' \
+            -printf '%h\n' | sed 's#^\./##' | sort > packages.txt
+          echo "Packages to check:"
+          cat packages.txt
 
-      - name: Style and naming (dotnet format style)
-        id: style
-        continue-on-error: true
-        run: |
-          dotnet format style ci/StyleCheck/StyleCheck.csproj --verify-no-changes --severity info --verbosity normal 2>&1 | tee style.log
-
-      - name: Documentation warnings (compiler CS1591)
-        id: docs
-        continue-on-error: true
-        run: |
-          dotnet build ci/StyleCheck/StyleCheck.csproj --nologo 2>&1 | tee build.log
-          # Turn compiler warnings into file annotations on the PR.
-          grep -E ': warning CS1591' build.log \
-            | sed -E "s#${GITHUB_WORKSPACE}/##; s#^([^()]+)\(([0-9]+),[0-9]+\): warning (CS[0-9]+): (.*) \[.*\]\$#::warning file=\1,line=\2,title=\3::\4#" \
-            || true
-
-      - name: Summarize
-        if: always()
+      - name: Check each package
+        env:
+          LANG_VERSION: "9.0"
         run: |
           {
             echo "## Style check results"
             echo
-            if [ "${{ steps.whitespace.outcome }}" = "failure" ]; then
-              echo "### Whitespace: violations found"
-              echo '```'; cat whitespace.log; echo '```'
-            else
-              echo "- Whitespace: clean"
-            fi
-            if [ "${{ steps.style.outcome }}" = "failure" ]; then
-              echo "### Style and naming: violations found"
-              echo '```'; cat style.log; echo '```'
-            else
-              echo "- Style and naming: clean"
-            fi
-            if [ "${{ steps.docs.outcome }}" = "failure" ]; then
-              echo "- Documentation: build step reported errors (expected without Unity references), see the log"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ steps.whitespace.outcome }}" = "failure" ] || [ "${{ steps.style.outcome }}" = "failure" ]; then
-            echo "::warning title=Style violations::Run dotnet format locally or see the job summary for details. This check does not block merging."
+          if [ ! -s packages.txt ]; then
+            echo "No packages with an .editorconfig found. Nothing to check." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          while read -r pkg; do
+            echo "::group::$pkg"
+            log="$RUNNER_TEMP/check.log"
+            if bash ci/check-package.sh "$pkg" > "$log" 2>&1; then
+              echo "- \`$pkg\`: clean" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- \`$pkg\`: violations found" >> "$GITHUB_STEP_SUMMARY"
+              echo "::warning title=Style violations::$pkg has style or doc warnings. This check does not block merging."
+              {
+                echo
+                echo "<details><summary>$pkg output</summary>"
+                echo
+                echo '```'
+                head -n 300 "$log"
+                echo '```'
+                echo "</details>"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            cat "$log"
+            echo "::endgroup::"
+          done < packages.txt
+
+          # Always succeed: this check reports, it does not block.
           exit 0
