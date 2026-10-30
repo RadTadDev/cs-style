@@ -1,7 +1,4 @@
-# Generated stub projects and logs from ci/check-package.sh
-ci/.stylecheck/
-
-# Build output
+# Build output from the CI style project
 bin/
 obj/
 
