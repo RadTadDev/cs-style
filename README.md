@@ -22,6 +22,10 @@ The rules apply to the folder they are placed in and everything beneath it. This
 
 - C# 9 (Unity 2022 and Unity 6 compatible). Change `LangVersion` in `Directory.Build.props` to upgrade. For C# 13 or later, also raise the `Microsoft.CodeAnalysis.CSharp` version in `ci/DocCheck/DocCheck.csproj`.
 - 4 spaces, LF, Allman braces, block-scoped namespaces, `using` outside the namespace, `System` usings first.
+- Braces on every `if`/`else`/`for`/`foreach`/`while`/`using`/`lock` body, even a single statement.
+- `switch` labels and case bodies are indented. No space after a cast: `(int)value`.
+- Blank lines, checked in CI: never two in a row, one after a closing brace before the next statement, and none between two braces of the same kind (`}` blank line `}`).
+- Blank lines, Rider only (applied when Rider reformats code): one around methods and properties with bodies, which also separates the fields from the first method; consecutive single-line fields and auto-properties stay grouped; no blank line just inside `{` or `}`, including an empty body.
 - Private fields are `_camelCase`. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
 - `this.` only when required.
 - `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
@@ -87,3 +91,5 @@ Any finding, including warnings, fails the job, so the PR shows a red X. All thr
 - Param and return doc tags are not enforced. That would need the StyleCop analyzer, which was deliberately left out.
 - DocCheck does not read `.editorconfig`. Turning off CS1591 there will not silence it in CI.
 - Code inside `#if` blocks that are not defined by default (such as `#if UNITY_EDITOR`) is not checked by DocCheck.
+- `dotnet format` has no blank-line rules for spacing between members. Those are `resharper_*` keys that only Rider applies, so CI does not check them. Run Reformat Code or Code Cleanup in Rider to apply them.
+- The blank-line rules CI does check (IDE2000, IDE2002, IDE2003) are marked experimental in Roslyn. They work with the .NET 10 SDK, but their names or behavior could change in a later SDK.
