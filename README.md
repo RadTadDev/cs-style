@@ -28,7 +28,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - Blank lines, Rider only (applied when Rider reformats code): one around methods and properties with bodies, which also separates the fields from the first method; consecutive single-line fields and auto-properties stay grouped; no blank line just inside `{` or `}`, including an empty body. Text inside doc comment tags such as `<summary>` is not indented. Empty bodies go on one line, as in `void Start() { }`. CI allows both layouts for empty bodies.
 - Private fields are `_camelCase`. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
 - `this.` only when required.
-- `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
+- `var` or an explicit type is the author's choice. Neither is checked.
 - Nullable reference types are disabled.
 - Public and protected members need `///` doc comments (CS1591). Param and return tags are not checked.
 - Overrides and interface implementations also need a comment. Docs are not inherited implicitly: the compiler reports CS1591 for them too, even though Rider and Visual Studio show the base docs on hover. Write `/// <inheritdoc />` to reuse the base or interface docs. Rider's quick-fix on the warning can add it.
@@ -81,7 +81,7 @@ Any finding, including warnings, fails the job, so the PR shows a red X. All thr
 ## Editors
 
 - **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type. It ignores the `resharper_*` keys, so on its own it never adds blank lines around methods or collapses empty bodies to `{ }`. For Rider's layout, install the recommended C# by ReSharper extension (`JetBrains.resharper-code`), which reads the same `resharper_*` keys. It is optional: free for non-commercial use, paid otherwise.
-- **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `var`, `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
+- **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
 - **Missing docs in the IDE**: both editors report CS1591 for public and protected members without `///` comments. In plain .NET projects this comes from `GenerateDocumentationFile` in `Directory.Build.props`. Unity's generated `.csproj` files are old-style projects that skip `Directory.Build.props`, so `Directory.Build.targets` sets the doc file for them instead. It only affects the IDE: Unity compiles scripts itself, so builds and the Unity Console are unchanged. After adding it, reload the projects in Rider (or reopen the solution). DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
 
 ## Known limits
