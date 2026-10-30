@@ -51,6 +51,16 @@ csharp_style_var_elsewhere = false:warning
 # Requires GenerateDocumentationFile (set in Directory.Build.props).
 dotnet_diagnostic.CS1591.severity = warning
 
+# Rider: it reads the rules above, but its own inspections for some of them default to hint, which is easy
+# to miss. These raise them to warning so Rider flags the same things CI does. Other tools ignore these keys.
+resharper_arrange_this_qualifier_highlighting = warning
+resharper_suggest_var_or_type_built_in_types_highlighting = warning
+resharper_suggest_var_or_type_simple_types_highlighting = warning
+resharper_suggest_var_or_type_elsewhere_highlighting = warning
+resharper_arrange_namespace_body_highlighting = warning
+resharper_inconsistent_naming_highlighting = warning
+resharper_c_sharp_warnings_cs1591_highlighting = warning
+
 # ---------------------------------------------------------------
 # Naming
 # ---------------------------------------------------------------
