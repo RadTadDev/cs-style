@@ -9,7 +9,8 @@ The rules apply to the folder they are placed in and everything beneath it. This
 | File | Purpose |
 |---|---|
 | `.editorconfig` | The single source of style rules. Read by Visual Studio Code, Rider, and `dotnet format`. |
-| `Directory.Build.props` | Language version (C# 9), nullable off, and XML doc file generation. |
+| `Directory.Build.props` | Language version (C# 9), nullable off, and XML doc file generation for SDK-style projects (the CI projects and plain .NET). |
+| `Directory.Build.targets` | Turns on the XML doc file in Unity's generated `.csproj` files, so Rider and VS Code report missing docs in Unity code. |
 | `ci/StyleCheck/StyleCheck.csproj` | CI-only project that includes every `.cs` file in the repo so `dotnet format` can check them. |
 | `ci/DocCheck/` | CI-only tool that reports missing XML docs and syntax newer than the target C# version. It only parses files, so it works on Unity code without UnityEngine. |
 | `ci/annotate.sh` | Turns tool output into annotations on the PR. |
@@ -35,6 +36,7 @@ Copy these into the project root:
 
 - `.editorconfig`
 - `Directory.Build.props`
+- `Directory.Build.targets`
 - `ci/`
 - `.github/workflows/style.yml`
 - `.vscode/extensions.json` (optional)
@@ -76,7 +78,7 @@ Any finding, including warnings, fails the job, so the PR shows a red X. All thr
 
 - **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type.
 - **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `var`, `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
-- **Missing docs in the IDE**: `Directory.Build.props` turns on `GenerateDocumentationFile`, so both editors report CS1591 for public and protected members without `///` comments. In a Unity project this works once Unity has generated the `.csproj` files. DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
+- **Missing docs in the IDE**: both editors report CS1591 for public and protected members without `///` comments. In plain .NET projects this comes from `GenerateDocumentationFile` in `Directory.Build.props`. Unity's generated `.csproj` files are old-style projects that skip `Directory.Build.props`, so `Directory.Build.targets` sets the doc file for them instead. It only affects the IDE: Unity compiles scripts itself, so builds and the Unity Console are unchanged. After adding it, reload the projects in Rider (or reopen the solution). DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
 
 ## Known limits
 
