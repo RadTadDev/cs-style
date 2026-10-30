@@ -23,52 +23,62 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      # Each check annotates its own findings: GitHub shows at most 10 warning annotations per step.
+      # The job summary always has the full list.
       - name: Whitespace (dotnet format whitespace)
         id: whitespace
         continue-on-error: true
         run: |
-          dotnet format whitespace ci/StyleCheck/StyleCheck.csproj --verify-no-changes --verbosity normal 2>&1 | tee whitespace.log
+          dotnet format whitespace ci/StyleCheck/StyleCheck.csproj --verify-no-changes 2>&1 | tee whitespace.log || status=$?
+          bash ci/annotate.sh whitespace.log
+          exit ${status:-0}
 
       - name: Style and naming (dotnet format style)
         id: style
         continue-on-error: true
         run: |
-          dotnet format style ci/StyleCheck/StyleCheck.csproj --verify-no-changes --severity info --verbosity normal 2>&1 | tee style.log
+          dotnet format style ci/StyleCheck/StyleCheck.csproj --verify-no-changes 2>&1 | tee style.log || status=$?
+          bash ci/annotate.sh style.log
+          exit ${status:-0}
 
-      - name: Documentation warnings (compiler CS1591)
+      - name: Documentation and language version (DocCheck)
         id: docs
         continue-on-error: true
         run: |
-          dotnet build ci/StyleCheck/StyleCheck.csproj --nologo 2>&1 | tee build.log
-          # Turn compiler warnings into file annotations on the PR.
-          grep -E ': warning CS1591' build.log \
-            | sed -E "s#${GITHUB_WORKSPACE}/##; s#^([^()]+)\(([0-9]+),[0-9]+\): warning (CS[0-9]+): (.*) \[.*\]\$#::warning file=\1,line=\2,title=\3::\4#" \
-            || true
+          dotnet build ci/DocCheck/DocCheck.csproj --nologo --verbosity quiet
+          dotnet run --project ci/DocCheck/DocCheck.csproj --no-build -- . 2>&1 | tee docs.log || status=$?
+          bash ci/annotate.sh docs.log
+          exit ${status:-0}
 
       - name: Summarize
         if: always()
         run: |
+          summarize() {
+            local title="$1" outcome="$2" log="$3"
+            local count
+            count=$(grep -cE '\): (error|warning) ' "$log" 2>/dev/null || true)
+            if [ "$outcome" = "success" ]; then
+              echo "- **$title**: clean"
+            else
+              echo "- **$title**: ${count:-0} findings"
+              echo
+              echo "<details><summary>$title output</summary>"
+              echo
+              echo '```'
+              sed -E "s#^${GITHUB_WORKSPACE}/##; s# \[[^]]*\]\$##" "$log" | head -n 300
+              echo '```'
+              echo "</details>"
+              echo
+            fi
+          }
+
           {
             echo "## Style check results"
             echo
-            if [ "${{ steps.whitespace.outcome }}" = "failure" ]; then
-              echo "### Whitespace: violations found"
-              echo '```'; cat whitespace.log; echo '```'
-            else
-              echo "- Whitespace: clean"
-            fi
-            if [ "${{ steps.style.outcome }}" = "failure" ]; then
-              echo "### Style and naming: violations found"
-              echo '```'; cat style.log; echo '```'
-            else
-              echo "- Style and naming: clean"
-            fi
-            if [ "${{ steps.docs.outcome }}" = "failure" ]; then
-              echo "- Documentation: build step reported errors (expected without Unity references), see the log"
-            fi
+            summarize "Whitespace" "${{ steps.whitespace.outcome }}" whitespace.log
+            summarize "Style and naming" "${{ steps.style.outcome }}" style.log
+            summarize "Documentation and language version" "${{ steps.docs.outcome }}" docs.log
+            echo
+            echo "This check does not block merging. See the README for the commands that fix whitespace and style locally."
           } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${{ steps.whitespace.outcome }}" = "failure" ] || [ "${{ steps.style.outcome }}" = "failure" ]; then
-            echo "::warning title=Style violations::Run dotnet format locally or see the job summary for details. This check does not block merging."
-          fi
           exit 0

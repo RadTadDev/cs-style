@@ -41,10 +41,11 @@ dotnet_style_qualification_for_property = false:warning
 dotnet_style_qualification_for_method = false:warning
 dotnet_style_qualification_for_event = false:warning
 
-# var: only when the type is apparent
-csharp_style_var_for_built_in_types = false:suggestion
-csharp_style_var_when_type_is_apparent = true:suggestion
-csharp_style_var_elsewhere = false:suggestion
+# var: only when the type is apparent. Built-in types (int, string, ...) always use the keyword.
+# Severity must be warning: dotnet format ignores suggestion-level rules, so CI would never report them.
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = false:warning
 
 # Documentation: public and protected members need /// comments.
 # Requires GenerateDocumentationFile (set in Directory.Build.props).
