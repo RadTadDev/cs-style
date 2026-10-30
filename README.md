@@ -25,7 +25,8 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - `this.` only when required.
 - `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
 - Nullable reference types are disabled.
-- Public and protected members need `///` doc comments (CS1591). `<inheritdoc />` counts. Param and return tags are not checked.
+- Public and protected members need `///` doc comments (CS1591). Param and return tags are not checked.
+- Overrides and interface implementations also need a comment. Docs are not inherited implicitly: the compiler reports CS1591 for them too, even though Rider and Visual Studio show the base docs on hover. Write `/// <inheritdoc />` to reuse the base or interface docs. Rider's quick-fix on the warning can add it.
 - The 120-character line length is an editor hint, not an enforced rule.
 
 ## Using it in a project
