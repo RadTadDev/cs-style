@@ -1,0 +1,74 @@
+name: Style check
+
+# Reports style violations as warnings on the run and in the job summary.
+# No step fails the job, so this never blocks a merge.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  style:
+    name: Style check (non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Whitespace (dotnet format whitespace)
+        id: whitespace
+        continue-on-error: true
+        run: |
+          dotnet format whitespace ci/StyleCheck/StyleCheck.csproj --verify-no-changes --verbosity normal 2>&1 | tee whitespace.log
+
+      - name: Style and naming (dotnet format style)
+        id: style
+        continue-on-error: true
+        run: |
+          dotnet format style ci/StyleCheck/StyleCheck.csproj --verify-no-changes --severity info --verbosity normal 2>&1 | tee style.log
+
+      - name: Documentation warnings (compiler CS1591)
+        id: docs
+        continue-on-error: true
+        run: |
+          dotnet build ci/StyleCheck/StyleCheck.csproj --nologo 2>&1 | tee build.log
+          # Turn compiler warnings into file annotations on the PR.
+          grep -E ': warning CS1591' build.log \
+            | sed -E "s#${GITHUB_WORKSPACE}/##; s#^([^()]+)\(([0-9]+),[0-9]+\): warning (CS[0-9]+): (.*) \[.*\]\$#::warning file=\1,line=\2,title=\3::\4#" \
+            || true
+
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "## Style check results"
+            echo
+            if [ "${{ steps.whitespace.outcome }}" = "failure" ]; then
+              echo "### Whitespace: violations found"
+              echo '```'; cat whitespace.log; echo '```'
+            else
+              echo "- Whitespace: clean"
+            fi
+            if [ "${{ steps.style.outcome }}" = "failure" ]; then
+              echo "### Style and naming: violations found"
+              echo '```'; cat style.log; echo '```'
+            else
+              echo "- Style and naming: clean"
+            fi
+            if [ "${{ steps.docs.outcome }}" = "failure" ]; then
+              echo "- Documentation: build step reported errors (expected without Unity references), see the log"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.whitespace.outcome }}" = "failure" ] || [ "${{ steps.style.outcome }}" = "failure" ]; then
+            echo "::warning title=Style violations::Run dotnet format locally or see the job summary for details. This check does not block merging."
+          fi
+          exit 0

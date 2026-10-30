@@ -1,0 +1,9 @@
+# Build output from the CI style project
+bin/
+obj/
+
+# Unity generated folders (in case this baseline is applied to a Unity project)
+Library/
+Temp/
+Logs/
+UserSettings/
