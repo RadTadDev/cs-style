@@ -74,6 +74,8 @@ resharper_braces_for_dowhile = required
 resharper_braces_for_using = required
 resharper_braces_for_lock = required
 resharper_braces_for_fixed = required
+# Keep doc comment text flush with the tag (/// This is.), not indented one level inside <summary>.
+resharper_xmldoc_indent_text = zero_indent
 
 # Qualification: only use this. when required
 dotnet_style_qualification_for_field = false:warning
