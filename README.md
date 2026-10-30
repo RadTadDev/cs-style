@@ -12,9 +12,9 @@ The rules apply to the folder they are placed in and everything beneath it. This
 | `Directory.Build.props` | Language version (C# 9), nullable off, and XML doc file generation. |
 | `ci/StyleCheck/StyleCheck.csproj` | CI-only project that includes every `.cs` file in the repo so `dotnet format` can check them. |
 | `ci/DocCheck/` | CI-only tool that reports missing XML docs and syntax newer than the target C# version. It only parses files, so it works on Unity code without UnityEngine. |
-| `ci/annotate.sh` | Turns tool output into warning annotations on the PR. |
-| `.github/workflows/style.yml` | Runs the checks on pull requests. Violations are reported as warnings and never block a merge. |
-| `.vscode/extensions.json` | Recommends the C# and EditorConfig extensions. |
+| `ci/annotate.sh` | Turns tool output into annotations on the PR. |
+| `.github/workflows/style.yml` | Runs the checks on pull requests. The job fails when there are findings, but it is not a required check, so it never blocks a merge. |
+| `.vscode/extensions.json` | Recommends the C# and EditorConfig extensions. VS Code offers to install them when the folder is opened. Nothing else in `.vscode/` is committed. |
 | `.gitattributes` | Forces LF line endings. |
 
 ## Baseline rules
@@ -67,7 +67,15 @@ Naming violations and missing docs are not auto-fixed. Rename the symbol, or add
 
 ## How CI reports
 
-Each push and pull request runs three checks: whitespace, style and naming, and documentation plus language version. Each finding becomes a warning annotation on the file and line. GitHub shows up to 10 per check. The job summary lists every finding. The job always passes, so merges are never blocked.
+Each push and pull request runs three checks: whitespace, style and naming, and documentation plus language version. Each finding becomes an annotation on the file and line. GitHub shows up to 10 per check. The job summary lists every finding.
+
+Any finding, including warnings, fails the job, so the PR shows a red X. All three checks still run. The check is not required in branch protection, so a failing run does not block a merge. Making it required is what would turn it into a gate.
+
+## Editors
+
+- **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type.
+- **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `var`, `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
+- **Missing docs in the IDE**: `Directory.Build.props` turns on `GenerateDocumentationFile`, so both editors report CS1591 for public and protected members without `///` comments. In a Unity project this works once Unity has generated the `.csproj` files. DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
 
 ## Known limits
 
@@ -76,4 +84,3 @@ Each push and pull request runs three checks: whitespace, style and naming, and 
 - Param and return doc tags are not enforced. That would need the StyleCop analyzer, which was deliberately left out.
 - DocCheck does not read `.editorconfig`. Turning off CS1591 there will not silence it in CI.
 - Code inside `#if` blocks that are not defined by default (such as `#if UNITY_EDITOR`) is not checked by DocCheck.
-- Rider reads `.editorconfig` directly, so it needs no extra files.
