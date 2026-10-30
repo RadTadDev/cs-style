@@ -15,7 +15,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 | `ci/DocCheck/` | CI-only tool that reports missing XML docs and syntax newer than the target C# version. It only parses files, so it works on Unity code without UnityEngine. |
 | `ci/annotate.sh` | Turns tool output into annotations on the PR. |
 | `.github/workflows/style.yml` | Runs the checks on pull requests. The job fails when there are findings, but it is not a required check, so it never blocks a merge. |
-| `.vscode/extensions.json` | Recommends the C# and EditorConfig extensions. VS Code offers to install them when the folder is opened. Nothing else in `.vscode/` is committed. |
+| `.vscode/extensions.json` | Recommends the C#, EditorConfig, and C# by ReSharper extensions. VS Code offers to install them when the folder is opened. Nothing else in `.vscode/` is committed. |
 | `.gitattributes` | Forces LF line endings. |
 
 ## Baseline rules
@@ -80,7 +80,7 @@ Any finding, including warnings, fails the job, so the PR shows a red X. All thr
 
 ## Editors
 
-- **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type.
+- **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type. It ignores the `resharper_*` keys, so on its own it never adds blank lines around methods or collapses empty bodies to `{ }`. For Rider's layout, install the recommended C# by ReSharper extension (`JetBrains.resharper-code`), which reads the same `resharper_*` keys. It is optional: free for non-commercial use, paid otherwise.
 - **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `var`, `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
 - **Missing docs in the IDE**: both editors report CS1591 for public and protected members without `///` comments. In plain .NET projects this comes from `GenerateDocumentationFile` in `Directory.Build.props`. Unity's generated `.csproj` files are old-style projects that skip `Directory.Build.props`, so `Directory.Build.targets` sets the doc file for them instead. It only affects the IDE: Unity compiles scripts itself, so builds and the Unity Console are unchanged. After adding it, reload the projects in Rider (or reopen the solution). DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
 
