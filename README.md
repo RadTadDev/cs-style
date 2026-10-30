@@ -25,7 +25,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - Braces on every `if`/`else`/`for`/`foreach`/`while`/`using`/`lock` body, even a single statement.
 - `switch` labels and case bodies are indented. No space after a cast: `(int)value`.
 - Blank lines, checked in CI: never two in a row, one after a closing brace before the next statement, and none between two braces of the same kind (`}` blank line `}`).
-- Blank lines, Rider only (applied when Rider reformats code): one around methods and properties with bodies, which also separates the fields from the first method; consecutive single-line fields and auto-properties stay grouped; no blank line just inside `{` or `}`, including an empty body. Text inside doc comment tags such as `<summary>` is not indented.
+- Blank lines, Rider only (applied when Rider reformats code): one around methods and properties with bodies, which also separates the fields from the first method; consecutive single-line fields and auto-properties stay grouped; no blank line just inside `{` or `}`, including an empty body. Text inside doc comment tags such as `<summary>` is not indented. Empty bodies go on one line, as in `void Start() { }`. CI allows both layouts for empty bodies.
 - Private fields are `_camelCase`. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
 - `this.` only when required.
 - `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
