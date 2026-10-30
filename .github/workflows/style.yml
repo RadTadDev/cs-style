@@ -24,12 +24,21 @@ jobs:
       GIT_CONFIG_VALUE_0: main
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+    defaults:
+      run:
+        # Named bash adds -o pipefail, so `tool | tee log` keeps the tool's exit code instead of tee's.
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+
+      # setup-dotnet's compiler problem matcher would annotate dotnet format findings a second time.
+      # ci/annotate.sh annotates every check the same way.
+      - name: Remove setup-dotnet problem matcher
+        run: echo "::remove-matcher owner=csc::"
 
       # Each check annotates its own findings: GitHub shows at most 10 annotations of each severity per step.
       # The job summary always has the full list. continue-on-error lets every check run; Summarize fails the job.
@@ -73,7 +82,7 @@ jobs:
               echo "<details><summary>$title output</summary>"
               echo
               echo '```'
-              sed -E "s#^${GITHUB_WORKSPACE}/##; s# \[[^]]*\]\$##" "$log" | head -n 300
+              sed -E "s#^${GITHUB_WORKSPACE}/##; s# \[[^]]*\]\$##" "$log" | head -n 300 || true
               echo '```'
               echo "</details>"
               echo
