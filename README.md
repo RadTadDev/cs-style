@@ -21,7 +21,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 
 - C# 9 (Unity 2022 and Unity 6 compatible). Change `LangVersion` in `Directory.Build.props` to upgrade. For C# 13 or later, also raise the `Microsoft.CodeAnalysis.CSharp` version in `ci/DocCheck/DocCheck.csproj`.
 - 4 spaces, LF, Allman braces, block-scoped namespaces, `using` outside the namespace, `System` usings first.
-- Private fields are `_camelCase`. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
+- Private fields are `_camelCase`, including private `[SerializeField]` fields. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
 - `this.` only when required.
 - `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
 - Nullable reference types are disabled.
@@ -77,3 +77,5 @@ Each push and pull request runs three checks: whitespace, style and naming, and 
 - DocCheck does not read `.editorconfig`. Turning off CS1591 there will not silence it in CI.
 - Code inside `#if` blocks that are not defined by default (such as `#if UNITY_EDITOR`) is not checked by DocCheck.
 - Rider reads `.editorconfig` directly, so it needs no extra files.
+- Rider's Unity plugin puts `[SerializeField]` fields under its own built-in "Unity serialized field" rule (camelCase by default, and changeable in Rider's settings). `.editorconfig` has an extra rule that takes over for private serialized fields so they stay `_camelCase`. Public serialized fields still follow Rider's rule. The comments on that rule list the keys Rider needs to accept it.
+- Rider and InspectCode cache naming settings. After changing naming rules in `.editorconfig`, reopen the solution. If the old rule still shows, use **File → Invalidate Caches** in Rider.

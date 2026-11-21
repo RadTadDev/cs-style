@@ -55,7 +55,7 @@ dotnet_diagnostic.CS1591.severity = warning
 # Naming
 # ---------------------------------------------------------------
 
-# Private fields: _camelCase (also covers [SerializeField] private fields in Unity)
+# Private fields: _camelCase
 dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel_case.required_prefix = _
@@ -63,6 +63,22 @@ dotnet_naming_style.underscore_camel_case.capitalization = camel_case
 dotnet_naming_rule.private_fields_are_underscore_camel.symbols = private_fields
 dotnet_naming_rule.private_fields_are_underscore_camel.style = underscore_camel_case
 dotnet_naming_rule.private_fields_are_underscore_camel.severity = warning
+
+# Private [SerializeField] fields in Unity: _camelCase, same as other private fields.
+# Rider's Unity plugin puts serialized fields under its own "Unity serialized field" rule (camelCase by default,
+# changeable in Rider's settings), so the rule above does not reach them in Rider. This rule takes over for
+# private ones only; public serialized fields keep Rider's rule.
+# - Rider reads resharper_applicable_kinds. applicable_kinds must stay a kind dotnet format knows (field):
+#   with any other value Rider drops the whole rule. For dotnet format this repeats the rule above.
+# - resharper_required_modifiers = instance makes this rule more specific than Rider's built-in one, so it wins.
+dotnet_naming_symbols.unity_serialized_private_fields.applicable_kinds = field
+dotnet_naming_symbols.unity_serialized_private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.unity_serialized_private_fields.resharper_applicable_kinds = unity_serialised_field
+dotnet_naming_symbols.unity_serialized_private_fields.resharper_required_modifiers = instance
+dotnet_naming_rule.unity_serialized_private_fields_are_underscore_camel.resharper_description = Unity serialized field (private)
+dotnet_naming_rule.unity_serialized_private_fields_are_underscore_camel.symbols = unity_serialized_private_fields
+dotnet_naming_rule.unity_serialized_private_fields_are_underscore_camel.style = underscore_camel_case
+dotnet_naming_rule.unity_serialized_private_fields_are_underscore_camel.severity = warning
 
 # Constants and static readonly fields: PascalCase
 dotnet_naming_symbols.constant_fields.applicable_kinds = field
