@@ -33,7 +33,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - Nullable reference types are disabled.
 - Public and protected members need `///` doc comments (CS1591). Param and return tags are not checked.
 - Overrides and interface implementations also need a comment. Docs are not inherited implicitly: the compiler reports CS1591 for them too, even though Rider and Visual Studio show the base docs on hover. Write `/// <inheritdoc />` to reuse the base or interface docs. Rider's quick-fix on the warning can add it.
-- Test code: files under any folder named `Tests` (Unity's convention for test assemblies) need no doc comments, and async methods there don't need the `Async` suffix. The section at the end of `.editorconfig` sets this; add other test-only exceptions there.
+- Test code: files under any folder named `Tests` (Unity's convention for test assemblies) need no doc comments, async methods there don't need the `Async` suffix, and more than one blank line in a row is allowed. The section at the end of `.editorconfig` sets this; add other test-only exceptions there.
 - To skip doc checks for any other file, put `#pragma warning disable CS1591` at the top. The compiler, Rider, and DocCheck all honor it. `#pragma warning restore CS1591` turns the check back on for the rest of the file.
 - The 120-character line length is an editor hint, not an enforced rule.
 
@@ -73,13 +73,42 @@ dotnet format style ci/StyleCheck/StyleCheck.csproj
 dotnet format whitespace ci/StyleCheck/StyleCheck.csproj
 ```
 
-Naming violations and missing docs are not auto-fixed. Rename the symbol, or add the doc comment.
+Naming violations and missing docs are not auto-fixed. Rename the symbol, add the doc comment, or suppress the finding (see [Suppressing a finding](#suppressing-a-finding)).
 
 ## How CI reports
 
 Each push and pull request runs three checks: whitespace, style and naming, and documentation plus language version. Each finding becomes an annotation on the file and line. GitHub shows up to 10 per check. The job summary lists every finding.
 
 Any finding, including warnings, fails the job, so the PR shows a red X. All three checks still run. The check is not required in branch protection, so a failing run does not block a merge. Making it required is what would turn it into a gate.
+
+## Suppressing a finding
+
+The style and naming check (`dotnet format style`) honors the standard C# suppressions for any `IDE` number:
+
+| How | Covers |
+|---|---|
+| `dotnet_diagnostic.IDE2000.severity = none` in `.editorconfig` | every file the section matches, such as the `Tests` section |
+| `#pragma warning disable IDE1006` … `#pragma warning restore IDE1006` | the lines in between |
+| `[SuppressMessage("Style", "IDE1006", Justification = "...")]` | one member |
+| `[assembly: SuppressMessage("Style", "IDE1006", Justification = "...", Scope = "member", Target = "~P:Namespace.Type.member")]` in `GlobalSuppressions.cs` | one member, kept out of its file |
+
+- `IDE1006` covers every naming rule at once. To relax one naming rule for a folder, set that rule's own `dotnet_naming_rule.<name>.*` keys in a section, as the `Tests` section does for the `Async` suffix.
+- The whitespace check is a formatter, not a set of numbered rules, so it cannot be suppressed by number.
+- DocCheck only reports CS1591. It honors `#pragma warning disable CS1591` and the CS1591 severity in `.editorconfig`.
+
+### Names that Unity interfaces require
+
+CI has no Unity DLLs, so it cannot see that a member implements a Unity interface. A name you cannot change, such as `callbackOrder` from Unity's `IOrderedCallback` (the base of `IPreprocessBuildWithReport` and the other build callbacks), is reported as a naming violation. Rider has Unity loaded and does not report it. Suppress it on the member:
+
+```csharp
+using System.Diagnostics.CodeAnalysis;
+
+/// <inheritdoc />
+[SuppressMessage("Style", "IDE1006", Justification = "Name comes from Unity's IOrderedCallback.")]
+public int callbackOrder => 0;
+```
+
+`SuppressMessage` works in Unity code even though Unity does not define the `CODE_ANALYSIS` symbol the attribute is tied to: the check reads it from the source.
 
 ## Editors
 
