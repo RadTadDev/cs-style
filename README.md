@@ -33,6 +33,7 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - Nullable reference types are disabled.
 - Public and protected members need `///` doc comments (CS1591). Param and return tags are not checked.
 - Overrides and interface implementations also need a comment. Docs are not inherited implicitly: the compiler reports CS1591 for them too, even though Rider and Visual Studio show the base docs on hover. Write `/// <inheritdoc />` to reuse the base or interface docs. Rider's quick-fix on the warning can add it.
+- To skip doc checks for a file, such as unit tests, put `#pragma warning disable CS1591` at the top. The compiler, Rider, and DocCheck all honor it. `#pragma warning restore CS1591` turns the check back on for the rest of the file.
 - The 120-character line length is an editor hint, not an enforced rule.
 
 ## Using it in a project
@@ -90,7 +91,7 @@ Any finding, including warnings, fails the job, so the PR shows a red X. All thr
 - Rules must be at `warning` severity to show up in CI. `dotnet format` ignores `suggestion`-level rules.
 - `UPPER_SNAKE_CASE` constants such as `MAX_SPEED` pass the PascalCase rule. Roslyn only checks that the first letter is uppercase.
 - Param and return doc tags are not enforced. That would need the StyleCop analyzer, which was deliberately left out.
-- DocCheck does not read `.editorconfig`. Turning off CS1591 there will not silence it in CI.
+- DocCheck does not read `.editorconfig`. Turning off CS1591 there will not silence it in CI. Use `#pragma warning disable CS1591` in the file instead.
 - Code inside `#if` blocks that are not defined by default (such as `#if UNITY_EDITOR`) is not checked by DocCheck.
 - Rider reads `.editorconfig` directly, so it needs no extra files.
 - Rider's Unity plugin puts `[SerializeField]` fields under its own built-in "Unity serialized field" rule (camelCase by default, and changeable in Rider's settings). `.editorconfig` has an extra rule that takes over for private serialized fields so they stay `_camelCase`. Public serialized fields still follow Rider's rule. The comments on that rule list the keys Rider needs to accept it.
