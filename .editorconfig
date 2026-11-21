@@ -181,3 +181,7 @@ dotnet_naming_rule.async_methods_end_in_async.style = pascal_case
 # line above does not reach it. Rider's naming check is turned off for these files instead. CI still reports
 # naming problems in them.
 resharper_inconsistent_naming_highlighting = none
+
+# More than one blank line in a row is allowed (IDE2000 is off). Rider's Reformat Code still collapses them
+# to one, using the resharper_keep_blank_lines_* keys above.
+dotnet_diagnostic.IDE2000.severity = none
