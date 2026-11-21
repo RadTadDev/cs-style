@@ -14,6 +14,8 @@ namespace CsStyle.DocCheck
     /// The compiler skips CS1591 whenever a project has errors, which is always the case for Unity code built
     /// without UnityEngine references. Parsing alone avoids that. Also reports syntax the target C# version
     /// does not support, such as file-scoped namespaces under C# 9.
+    /// Like the compiler, it honors <c>#pragma warning disable CS1591</c>, so a file (unit tests, for example)
+    /// can opt out of doc checks with one line at the top.
     /// </summary>
     internal static class Program
     {
@@ -52,12 +54,13 @@ namespace CsStyle.DocCheck
                 string relativePath = Path.GetRelativePath(root, file).Replace('\\', '/');
                 SyntaxTree tree = CSharpSyntaxTree.ParseText(File.ReadAllText(file), options, relativePath);
                 trees.Add(tree);
-                CheckMembers(((CompilationUnitSyntax)tree.GetRoot()).Members, string.Empty, ContainerKind.Namespace);
+                var compilationUnit = (CompilationUnitSyntax)tree.GetRoot();
+                CheckMembers(compilationUnit.Members, string.Empty, ContainerKind.Namespace, new DocSuppressions(tree));
             }
 
             ReportLanguageErrors(trees);
 
-            foreach (PartialType partialType in PartialTypes.Values.Where(type => !type.HasDocs))
+            foreach (PartialType partialType in PartialTypes.Values.Where(type => !type.HasDocs && type.Finding != null))
             {
                 Findings.Add(partialType.Finding);
             }
@@ -106,13 +109,17 @@ namespace CsStyle.DocCheck
             Findings.AddRange(errors);
         }
 
-        private static void CheckMembers(SyntaxList<MemberDeclarationSyntax> members, string containerName, ContainerKind container)
+        private static void CheckMembers(
+            SyntaxList<MemberDeclarationSyntax> members,
+            string containerName,
+            ContainerKind container,
+            DocSuppressions suppressions)
         {
             foreach (MemberDeclarationSyntax member in members)
             {
                 if (member is BaseNamespaceDeclarationSyntax ns)
                 {
-                    CheckMembers(ns.Members, Join(containerName, ns.Name.ToString()), ContainerKind.Namespace);
+                    CheckMembers(ns.Members, Join(containerName, ns.Name.ToString()), ContainerKind.Namespace, suppressions);
                     continue;
                 }
 
@@ -125,23 +132,23 @@ namespace CsStyle.DocCheck
 
                 if (member is TypeDeclarationSyntax type && type.Modifiers.Any(SyntaxKind.PartialKeyword))
                 {
-                    TrackPartialType(type, name);
+                    TrackPartialType(type, name, suppressions);
                 }
                 else if (!HasDocs(member))
                 {
-                    AddMissingDocs(member, name);
+                    AddMissingDocs(member, name, suppressions);
                 }
 
                 if (member is TypeDeclarationSyntax nestedType)
                 {
                     ContainerKind kind = nestedType is InterfaceDeclarationSyntax ? ContainerKind.Interface : ContainerKind.Type;
-                    CheckMembers(nestedType.Members, name, kind);
+                    CheckMembers(nestedType.Members, name, kind, suppressions);
                 }
                 else if (member is EnumDeclarationSyntax enumType)
                 {
                     foreach (EnumMemberDeclarationSyntax enumMember in enumType.Members.Where(m => !HasDocs(m)))
                     {
-                        AddMissingDocs(enumMember, Join(name, enumMember.Identifier.Text));
+                        AddMissingDocs(enumMember, Join(name, enumMember.Identifier.Text), suppressions);
                     }
                 }
             }
@@ -174,21 +181,32 @@ namespace CsStyle.DocCheck
                 trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia));
         }
 
-        private static void TrackPartialType(TypeDeclarationSyntax type, string name)
+        private static void TrackPartialType(TypeDeclarationSyntax type, string name, DocSuppressions suppressions)
         {
             string key = $"{name}`{type.Arity}";
             if (!PartialTypes.TryGetValue(key, out PartialType partialType))
             {
-                partialType = new PartialType(Format(GetNameToken(type).GetLocation(), "warning", "CS1591", MissingDocsMessage(name)));
+                partialType = new PartialType();
                 PartialTypes.Add(key, partialType);
             }
 
             partialType.HasDocs |= HasDocs(type);
+
+            // Reported at the first part that is not under a CS1591 pragma. If every part is, nothing is reported.
+            SyntaxToken nameToken = GetNameToken(type);
+            if (partialType.Finding == null && !suppressions.IsSuppressed(nameToken))
+            {
+                partialType.Finding = Format(nameToken.GetLocation(), "warning", "CS1591", MissingDocsMessage(name));
+            }
         }
 
-        private static void AddMissingDocs(SyntaxNode node, string name)
+        private static void AddMissingDocs(SyntaxNode node, string name, DocSuppressions suppressions)
         {
-            Findings.Add(Format(GetNameToken(node).GetLocation(), "warning", "CS1591", MissingDocsMessage(name)));
+            SyntaxToken nameToken = GetNameToken(node);
+            if (!suppressions.IsSuppressed(nameToken))
+            {
+                Findings.Add(Format(nameToken.GetLocation(), "warning", "CS1591", MissingDocsMessage(name)));
+            }
         }
 
         private static string MissingDocsMessage(string name)
@@ -269,14 +287,43 @@ namespace CsStyle.DocCheck
 
         private sealed class PartialType
         {
-            public PartialType(string finding)
-            {
-                Finding = finding;
-            }
-
-            public string Finding { get; }
+            public string Finding { get; set; }
 
             public bool HasDocs { get; set; }
+        }
+
+        // The file's #pragma warning disable/restore lines that cover CS1591, in file order. Same rules as the
+        // compiler: a pragma applies from its line on, and one with no codes covers every warning.
+        private sealed class DocSuppressions
+        {
+            private readonly List<PragmaWarningDirectiveTriviaSyntax> _pragmas;
+
+            public DocSuppressions(SyntaxTree tree)
+            {
+                _pragmas = tree.GetRoot()
+                    .DescendantNodes(descendIntoTrivia: true)
+                    .OfType<PragmaWarningDirectiveTriviaSyntax>()
+                    .Where(CoversMissingDocs)
+                    .ToList();
+            }
+
+            public bool IsSuppressed(SyntaxToken token)
+            {
+                PragmaWarningDirectiveTriviaSyntax last = _pragmas
+                    .LastOrDefault(pragma => pragma.SpanStart < token.SpanStart);
+                return last != null && last.DisableOrRestoreKeyword.IsKind(SyntaxKind.DisableKeyword);
+            }
+
+            private static bool CoversMissingDocs(PragmaWarningDirectiveTriviaSyntax pragma)
+            {
+                return pragma.ErrorCodes.Count == 0 || pragma.ErrorCodes.Any(code => IsMissingDocsCode(code.ToString()));
+            }
+
+            // The code can be written as CS1591 or 1591.
+            private static bool IsMissingDocsCode(string code)
+            {
+                return code == "CS1591" || code == "1591";
+            }
         }
     }
 }
