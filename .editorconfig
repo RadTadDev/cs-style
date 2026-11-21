@@ -164,3 +164,20 @@ dotnet_naming_symbols.types_and_members.applicable_kinds = class, struct, enum, 
 dotnet_naming_rule.types_and_members_pascal_case.symbols = types_and_members
 dotnet_naming_rule.types_and_members_pascal_case.style = pascal_case
 dotnet_naming_rule.types_and_members_pascal_case.severity = warning
+
+# ---------------------------------------------------------------
+# Tests: every .cs file under a folder named Tests (Unity's convention for test assemblies).
+# This section comes last so its values override the ones above. Add other relaxed rules here.
+# ---------------------------------------------------------------
+[{Tests/**.cs,**/Tests/**.cs}]
+
+# No /// docs needed on test classes and methods. The resharper_ key is Rider's copy of the same setting.
+dotnet_diagnostic.CS1591.severity = none
+resharper_c_sharp_warnings_cs1591_highlighting = none
+
+# async test methods do not need the Async suffix. dotnet format (CI) still checks them for PascalCase.
+dotnet_naming_rule.async_methods_end_in_async.style = pascal_case
+# Rider ignores naming rules changed for a folder (in a section like this or a nested .editorconfig), so the
+# line above does not reach it. Rider's naming check is turned off for these files instead. CI still reports
+# naming problems in them.
+resharper_inconsistent_naming_highlighting = none
