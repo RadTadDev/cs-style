@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Turns tool output lines of the form
 #   path(line,col): error|warning ID: message [project]
-# into GitHub warning annotations. Every finding becomes a warning, so nothing blocks a merge.
+# into GitHub annotations with the same severity. Failing the job is left to the workflow.
 #
 # usage: ci/annotate.sh <log file>...
 
@@ -11,5 +11,5 @@ cat "$@" 2>/dev/null \
   | sed -nE \
       -e 's# \[[^]]*\]$##' \
       -e "s#^${workspace}/##" \
-      -e 's#^([^(]+)\(([0-9]+),([0-9]+)\): (error|warning) ([A-Za-z0-9]+): (.*)$#::warning file=\1,line=\2,col=\3,title=\5::\6#p' \
+      -e 's#^([^(]+)\(([0-9]+),([0-9]+)\): (error|warning) ([A-Za-z0-9]+): (.*)$#::\4 file=\1,line=\2,col=\3,title=\5::\6#p' \
   | sort -u

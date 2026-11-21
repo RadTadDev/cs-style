@@ -9,12 +9,13 @@ The rules apply to the folder they are placed in and everything beneath it. This
 | File | Purpose |
 |---|---|
 | `.editorconfig` | The single source of style rules. Read by Visual Studio Code, Rider, and `dotnet format`. |
-| `Directory.Build.props` | Language version (C# 9), nullable off, and XML doc file generation. |
+| `Directory.Build.props` | Language version (C# 9), nullable off, and XML doc file generation for SDK-style projects (the CI projects and plain .NET). |
+| `Directory.Build.targets` | Turns on the XML doc file in Unity's generated `.csproj` files, so Rider and VS Code report missing docs in Unity code. |
 | `ci/StyleCheck/StyleCheck.csproj` | CI-only project that includes every `.cs` file in the repo so `dotnet format` can check them. |
 | `ci/DocCheck/` | CI-only tool that reports missing XML docs and syntax newer than the target C# version. It only parses files, so it works on Unity code without UnityEngine. |
-| `ci/annotate.sh` | Turns tool output into warning annotations on the PR. |
-| `.github/workflows/style.yml` | Runs the checks on pull requests. Violations are reported as warnings and never block a merge. |
-| `.vscode/extensions.json` | Recommends the C# and EditorConfig extensions. |
+| `ci/annotate.sh` | Turns tool output into annotations on the PR. |
+| `.github/workflows/style.yml` | Runs the checks on pull requests. The job fails when there are findings, but it is not a required check, so it never blocks a merge. |
+| `.vscode/extensions.json` | Recommends the C#, EditorConfig, and C# by ReSharper extensions. VS Code offers to install them when the folder is opened. Nothing else in `.vscode/` is committed. |
 | `.gitattributes` | Forces LF line endings. |
 
 ## Baseline rules
@@ -22,10 +23,16 @@ The rules apply to the folder they are placed in and everything beneath it. This
 - C# 9 (Unity 2022 and Unity 6 compatible). Change `LangVersion` in `Directory.Build.props` to upgrade. For C# 13 or later, also raise the `Microsoft.CodeAnalysis.CSharp` version in `ci/DocCheck/DocCheck.csproj`.
 - 4 spaces, LF, Allman braces, block-scoped namespaces, `using` outside the namespace, `System` usings first.
 - Private fields are `_camelCase`, including private `[SerializeField]` fields. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
+- Braces on every `if`/`else`/`for`/`foreach`/`while`/`using`/`lock` body, even a single statement.
+- `switch` labels and case bodies are indented. No space after a cast: `(int)value`.
+- Blank lines, checked in CI: never two in a row, one after a closing brace before the next statement, and none between two braces of the same kind (`}` blank line `}`).
+- Blank lines, Rider only (applied when Rider reformats code): one around methods and properties with bodies, which also separates the fields from the first method; consecutive single-line fields and auto-properties stay grouped; no blank line just inside `{` or `}`, including an empty body. Text inside doc comment tags such as `<summary>` is not indented. Empty bodies go on one line, as in `void Start() { }`. CI allows both layouts for empty bodies.
+- Private fields are `_camelCase`. Constants and static readonly fields are `PascalCase`. Async methods end in `Async`. Interfaces start with `I`. Types and members are `PascalCase`.
 - `this.` only when required.
-- `var` only when the type is apparent. Built-in types (`int`, `string`, ...) always use the keyword.
+- `var` or an explicit type is the author's choice. Neither is checked.
 - Nullable reference types are disabled.
-- Public and protected members need `///` doc comments (CS1591). `<inheritdoc />` counts. Param and return tags are not checked.
+- Public and protected members need `///` doc comments (CS1591). Param and return tags are not checked.
+- Overrides and interface implementations also need a comment. Docs are not inherited implicitly: the compiler reports CS1591 for them too, even though Rider and Visual Studio show the base docs on hover. Write `/// <inheritdoc />` to reuse the base or interface docs. Rider's quick-fix on the warning can add it.
 - The 120-character line length is an editor hint, not an enforced rule.
 
 ## Using it in a project
@@ -34,6 +41,7 @@ Copy these into the project root:
 
 - `.editorconfig`
 - `Directory.Build.props`
+- `Directory.Build.targets`
 - `ci/`
 - `.github/workflows/style.yml`
 - `.vscode/extensions.json` (optional)
@@ -67,7 +75,15 @@ Naming violations and missing docs are not auto-fixed. Rename the symbol, or add
 
 ## How CI reports
 
-Each push and pull request runs three checks: whitespace, style and naming, and documentation plus language version. Each finding becomes a warning annotation on the file and line. GitHub shows up to 10 per check. The job summary lists every finding. The job always passes, so merges are never blocked.
+Each push and pull request runs three checks: whitespace, style and naming, and documentation plus language version. Each finding becomes an annotation on the file and line. GitHub shows up to 10 per check. The job summary lists every finding.
+
+Any finding, including warnings, fails the job, so the PR shows a red X. All three checks still run. The check is not required in branch protection, so a failing run does not block a merge. Making it required is what would turn it into a gate.
+
+## Editors
+
+- **VS Code**: the C# extension reads `.editorconfig` and shows naming, style, and missing-doc warnings as you type. It ignores the `resharper_*` keys, so on its own it never adds blank lines around methods or collapses empty bodies to `{ }`. For Rider's layout, install the recommended C# by ReSharper extension (`JetBrains.resharper-code`), which reads the same `resharper_*` keys. It is optional: free for non-commercial use, paid otherwise.
+- **Rider**: reads `.editorconfig` by default (Settings | Editor | Code Style, and Settings | Editor | Inspection Settings, "Read settings from editorconfig, project settings and rule sets"). The `resharper_*` keys in `.editorconfig` raise Rider's own inspections for `this.`, namespaces, naming, and missing docs to warning to match CI. If a project was opened before these files were added, reopen it.
+- **Missing docs in the IDE**: both editors report CS1591 for public and protected members without `///` comments. In plain .NET projects this comes from `GenerateDocumentationFile` in `Directory.Build.props`. Unity's generated `.csproj` files are old-style projects that skip `Directory.Build.props`, so `Directory.Build.targets` sets the doc file for them instead. It only affects the IDE: Unity compiles scripts itself, so builds and the Unity Console are unchanged. After adding it, reload the projects in Rider (or reopen the solution). DocCheck also covers code the IDE cannot compile. Run it locally with the command above.
 
 ## Known limits
 
@@ -79,3 +95,5 @@ Each push and pull request runs three checks: whitespace, style and naming, and 
 - Rider reads `.editorconfig` directly, so it needs no extra files.
 - Rider's Unity plugin puts `[SerializeField]` fields under its own built-in "Unity serialized field" rule (camelCase by default, and changeable in Rider's settings). `.editorconfig` has an extra rule that takes over for private serialized fields so they stay `_camelCase`. Public serialized fields still follow Rider's rule. The comments on that rule list the keys Rider needs to accept it.
 - Rider and InspectCode cache naming settings. After changing naming rules in `.editorconfig`, reopen the solution. If the old rule still shows, use **File → Invalidate Caches** in Rider.
+- `dotnet format` has no blank-line rules for spacing between members. Those are `resharper_*` keys that only Rider applies, so CI does not check them. Run Reformat Code or Code Cleanup in Rider to apply them.
+- The blank-line rules CI does check (IDE2000, IDE2002, IDE2003) are marked experimental in Roslyn. They work with the .NET 10 SDK, but their names or behavior could change in a later SDK.

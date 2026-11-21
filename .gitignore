@@ -7,3 +7,8 @@ Library/
 Temp/
 Logs/
 UserSettings/
+
+# Editor settings are personal. Only the shared extension recommendations are committed.
+.vscode/*
+!.vscode/extensions.json
+.idea/
